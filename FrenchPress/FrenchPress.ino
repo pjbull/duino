@@ -106,9 +106,9 @@ byte greenLedPin = 13;      // Contols the green brew finished LED
 byte stirTransistorPin = 9; // Controls the transistor which gates the stirring mechanism
 
 // Time intervals
-int oneMinuteMs =  (60 * 1000);
-int twentySecsMs = (20 * 1000);
-int fortySecsMs =  (40 * 1000);
+unsigned long oneMinuteMs =  60L * 1000L;
+unsigned long twentySecsMs = 20L * 1000L;
+unsigned long fortySecsMs =  40L * 1000L;
 
 // the setup routine runs once when you press reset:
 void setup() {                
