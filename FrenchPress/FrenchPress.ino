@@ -42,16 +42,18 @@ byte br = 7;  //      ---
 byte bot = 8; //      bot
 
 // Tells the arduino which pins to turn on for which digits.
-byte one[] =   {tr, br};
-byte two[] =   {top, tr, mid, bl, bot};
-byte three[] = {top, tr, mid, br, bot};
-byte four[] =  {tl, tr, mid, br};
-byte five[] =  {top, tl, mid, br, bot};
-byte six[] =   {tl, mid, bl, br, bot};
-byte seven[] = {top, tr, br};
-byte eight[] = {top, tl, tr, mid, bl, br, bot};
-byte nine[] =  {top, tl, tr, mid, br};
-byte zero[] =  {top, tl, tr, bl, br, bot};
+// For convenience, the number of LEDs to light up is the first entry, which
+// is a little cheaper than a struct or listing all the pins in each array.
+byte one[] =   {2, tr, br};
+byte two[] =   {5, top, tr, mid, bl, bot};
+byte three[] = {5, top, tr, mid, br, bot};
+byte four[] =  {4, tl, tr, mid, br};
+byte five[] =  {5, top, tl, mid, br, bot};
+byte six[] =   {5, tl, mid, bl, br, bot};
+byte seven[] = {3, top, tr, br};
+byte eight[] = {7, top, tl, tr, mid, bl, br, bot};
+byte nine[] =  {5, top, tl, tr, mid, br};
+byte zero[] =  {6, top, tl, tr, bl, br, bot};
 
 // The 7segment digit to display is equal to its index in this array
 byte* digits[] = {zero, one, two, three, four, five, six, seven, eight, nine};
@@ -60,9 +62,43 @@ byte* digits[] = {zero, one, two, three, four, five, six, seven, eight, nine};
 byte piezoPin = 11;
 #include "pitches.h"
 
-// Bob Dylan's "One More Cup of Coffee" (the chorus, more or less...)
-int melody[] = {NOTE_A3, NOTE_A3, NOTE_G3, NOTE_A3, NOTE_G3, NOTE_F3, NOTE_G3, NOTE_E3};
-int noteDurations[] = {1, 1, 8, 4, 2, 4, 4, 2 };
+// The final countdown . . . to coffee!
+int melody[] = {
+  NOTE_FS5, NOTE_E5, NOTE_FS5, NOTE_B4,
+  NOTE_G5, NOTE_FS5, NOTE_G5, NOTE_FS5, NOTE_E5,
+  NOTE_G5, NOTE_FS5, NOTE_G5, NOTE_B4,
+  NOTE_E5, NOTE_D5, NOTE_E5, NOTE_D5, NOTE_CS5, NOTE_E5, NOTE_D5,
+  
+  NOTE_FS5, NOTE_E5, NOTE_FS5, NOTE_B4,
+  NOTE_G5, NOTE_FS5, NOTE_G5, NOTE_FS5, NOTE_E5,
+  NOTE_G5, NOTE_FS5, NOTE_G5, NOTE_B4,
+  NOTE_E5, NOTE_D5, NOTE_E5, NOTE_D5, NOTE_CS5, NOTE_E5, NOTE_D5,
+  
+  NOTE_CS5, NOTE_D5, NOTE_E5,
+  NOTE_D5, NOTE_E5, NOTE_FS5, NOTE_E5, NOTE_D5, NOTE_CS5,
+  NOTE_B4, NOTE_G5, NOTE_FS5,
+  NOTE_FS5, NOTE_G5, NOTE_FS5, NOTE_E5,
+  
+  NOTE_FS5, NOTE_FS5, NOTE_FS5
+};
+
+int noteDurations[] = {
+  8, 8, 2, 1,
+  8, 8, 4, 4, 2,
+  8, 8, 2, 1,
+  8, 8, 4, 4, 4, 4, 2,
+  
+  8, 8, 2, 1,
+  8, 8, 4, 4, 2,
+  8, 8, 2, 1,
+  8, 8, 4, 4, 4, 4, 2,
+  
+  8, 8, 2,
+  8, 8, 4, 4, 4, 4,
+  2, 2, 1,
+  8, 8, 8, 8,
+  13 //special logic to extend last note
+};
 
 // Other pins
 byte startButtonPin = 12;   // Controls the momentary button which starts the brew process.
@@ -70,15 +106,16 @@ byte greenLedPin = 13;      // Contols the green brew finished LED
 byte stirTransistorPin = 9; // Controls the transistor which gates the stirring mechanism
 
 // Time intervals
-int oneMinuteMs =  (1 *1000);
-int halfMinuteMs = (3 *1000);
+int oneMinuteMs =  (60 * 1000);
+int twentySecsMs = (20 * 1000);
+int fortySecsMs =  (40 * 1000);
 
 // the setup routine runs once when you press reset:
 void setup() {                
   // initialize the 7 segment display pins as output.
-  for (byte ledPin = 0; ledPin < sizeof(digits[8]); ledPin++)
+  for (byte i = top; i <= bot; i++)
   {
-    pinMode(ledPin, OUTPUT);
+    pinMode(i, OUTPUT);
   }
   
   // initialize the other pins
@@ -91,7 +128,7 @@ void setup() {
 // the loop routine runs over and over again forever:
 void loop() {
   int buttonState = digitalRead(startButtonPin);
-
+  
   // check if the pushbutton is pressed.
   // if it is, the buttonState is HIGH:
   if (buttonState == HIGH) {       
@@ -104,14 +141,14 @@ void brew() {
   displayValue(4);
   delay(oneMinuteMs);
   
-  // Stir for half a minute
+  // Stir for 20s
   displayValue(3);
   digitalWrite(stirTransistorPin, HIGH);
-  delay(halfMinuteMs);
+  delay(twentySecsMs);
   
   // Stop stirring
   digitalWrite(stirTransistorPin, LOW);
-  delay(halfMinuteMs);
+  delay(fortySecsMs);
 
   // Countdown
   displayValue(2);
@@ -121,8 +158,8 @@ void brew() {
   
   // Brew finished
   displayValue(0);
-  playDone();
   digitalWrite(greenLedPin, HIGH);
+  playDone();
   delay(oneMinuteMs);
   
   // turn off LEDs
@@ -132,13 +169,8 @@ void brew() {
 
 
 void playDone() {
-  // iterate over the notes of the melody:
-  for (int thisNote = 0; thisNote < (sizeof(melody)/sizeof(int)) ; thisNote++) {
-
-    // to calculate the note duration, take one second 
-    // divided by the note type.
-    //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
-    int noteDuration = 1000/noteDurations[thisNote];
+  for (int thisNote = 0; thisNote < (sizeof(melody)/sizeof(int)) ; thisNote++) {   
+    int noteDuration = noteDurations[thisNote] != 13 ? 1000/noteDurations[thisNote] : 2500;
     tone(piezoPin, melody[thisNote], noteDuration);
 
     // to distinguish the notes, set a minimum time between them.
@@ -153,17 +185,17 @@ void playDone() {
 void displayValue(int i)
 {
   // turn off all LEDs by setting pins in the digit 8 to LOW
-  for (byte ledPin = 0; ledPin < sizeof(digits[8]); ledPin++)
+  for (byte cnt = 1; cnt <= digits[8][0]; cnt++)
   {
-    digitalWrite(ledPin, LOW);
+    digitalWrite(digits[8][cnt], LOW);
   }
   
   // if it is a single digit, set the appropriate pins to HIGH
   if(i > -1 && i < 10)
   {
-    for (byte ledPin = 0; ledPin < sizeof(digits[i]); ledPin++)
+    for (byte cnt = 1; cnt <= digits[i][0]; cnt++)
     {
-      digitalWrite(ledPin, HIGH);
+      digitalWrite(digits[i][cnt], HIGH);
     }
   }
   // else 7 segment display is off
