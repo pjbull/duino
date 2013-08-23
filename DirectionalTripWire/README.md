@@ -1,0 +1,1 @@
+![Wiring Diagram](diagram.png "Wiring Diagram")
