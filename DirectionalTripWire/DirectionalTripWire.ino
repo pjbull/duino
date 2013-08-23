@@ -1,3 +1,6 @@
+#include <Wire.h>
+#include "BlinkM_funcs.h"
+
 // ******************************************************************
 // DIRECTIONAL TRIPWIRE - Peter Bull - November 2012
 // 
@@ -14,16 +17,15 @@
 //================= PIN CONSTANTS
 const int inPinOne = A0;  // Analog input pin that photoresistor 1 is attached to
 const int inPinTwo = A1;  // Analog input pin that photoresistor 2 is attached to
-const int ledPin = 8;     // Output pin that the LED is attached to
 
 //================= TIME CONSTANTS
 const int LOOP_DELAY = 2;          // How long the main loop delays on each iteration (ms)
-const int LED_DELAY = 7000;        // How long to keep the LED on after it has been triggered (ms)
+const int LED_DELAY = 8*1000;      // How long to keep the LED on after it has been triggered (ms); 2mins
 const int RESET_DELAY = 5000;      // If the beams are tripped in the wrong direction, stop sensing for a period (ms)
-const int SAMPLE_DELAY = 100;     // How often to sample the photoresistor value (ms)
+const int SAMPLE_DELAY = 100;      // How often to sample the photoresistor value (ms)
 
 //================= SENSOR CONSTANTS
-const int DEV_MINIMUM = 50;
+const int DEV_MINIMUM = 50;       // Minimum deviance from the sensor baseline that will be counted as a trigger
 
 //================= EVENT CONSTANTS
 const int NORMALIZE_EVENT = 0;
@@ -49,6 +51,9 @@ unsigned long time2 = NULL;
 unsigned long time = 0;      
 long diff = 0;
 
+//================== BLINKM CONSTANTS
+byte BLINKM_ADDR = 0x09;
+
 //================== DEBUG
 boolean DEBUG = true;
 
@@ -58,9 +63,16 @@ void setup() {
     Serial.begin(9600);
   }
   
-  pinMode(ledPin, OUTPUT);
+  setupBlinkM();
 }
 
+void setupBlinkM()
+{
+  Wire.begin();
+  BlinkM_beginWithPower();
+  delay(100); // wait a bit for things to stabilize
+  BlinkM_off(BLINKM_ADDR);  // turn everyone off
+}
 void loop() {
   // read the analog in value:
   sensor1_value = analogRead(inPinOne);
@@ -68,7 +80,7 @@ void loop() {
   
   // normalize sensor values if neither sensor has triggered
   if (((time1 == NULL && time2 == NULL) && time % SAMPLE_DELAY == 0) ||  // and the normSampleDelay has passed; or
-      (sensor1_base == NULL && sensor2_base == NULL))               // if hardware is reset, set base values
+      (sensor1_base == NULL && sensor2_base == NULL))                    // if hardware is reset, set base values
   {
     normalizeSensorBase();
   }
@@ -114,10 +126,57 @@ void loop() {
 
 void onTrigger()
 {
-    digitalWrite(ledPin, HIGH);
-    delay(LED_DELAY);
-    printEvent(LED_EVENT);
-    digitalWrite(ledPin, LOW);
+  simpleOnOff();
+
+//   NOTE: This does not appear to be supported by the
+//   CtrlM
+//   changeColors();
+   
+//   NOTE: This does not appear to be supported by the
+//   CtrlM
+//   playScripts();
+
+}
+
+void simpleOnOff()
+{
+   printEvent(LED_EVENT);  
+   Wire.beginTransmission(BLINKM_ADDR);
+   Wire.write('f');
+   Wire.write(255);
+   Wire.endTransmission();
+   delay(LED_DELAY);
+   BlinkM_off(BLINKM_ADDR);
+}
+
+void changeColors()
+{
+   Wire.beginTransmission(blinkm_addr);
+   Wire.write('c');
+   Wire.write(0xff);
+   Wire.write(0xff);
+   Wire.write(0xff);
+   delay(1000);
+   Wire.write('c');
+   Wire.write(0x01);
+   Wire.write(0x01);
+   Wire.write(0xbb);
+   Wire.endTransmission();
+   
+   BlinkM_off(BLINKM_ADDR);
+}
+
+void playScripts()
+{
+  for (byte b = 0; b < 0xff; b++)
+  {
+    BlinkM_playScript(BLINKM_ADDR, b, 0x04, 0x00);
+    Serial.print("PLAYING SCRIPT NUMBER: "); 
+    Serial.println(b);
+    delay(5*1000);
+    BlinkM_stopScript(BLINKM_ADDR);
+  }
+  BlinkM_off(BLINKM_ADDR);
 }
 
 void normalizeSensorBase()
@@ -129,7 +188,6 @@ void normalizeSensorBase()
         sensor2_base = sensor2_value;
         printEvent(INITIAL_EVENT);       
         return;
-        
       }
 
       // Add the sample values to the running total
