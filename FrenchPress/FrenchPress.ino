@@ -141,14 +141,14 @@ void brew() {
   displayValue(4);
   delay(oneMinuteMs);
   
-  // Stir for 20s
+  // Stir for 40s
   displayValue(3);
   digitalWrite(stirTransistorPin, HIGH);
-  delay(twentySecsMs);
+  delay(fortySecsMs);
   
   // Stop stirring
   digitalWrite(stirTransistorPin, LOW);
-  delay(fortySecsMs);
+  delay(twentySecsMs);
 
   // Countdown
   displayValue(2);
