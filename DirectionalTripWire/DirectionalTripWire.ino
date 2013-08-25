@@ -1,5 +1,5 @@
 #include <Wire.h>
-#include "BlinkM_funcs.h"
+#include "CtrlM_funcs.h"
 
 // ******************************************************************
 // DIRECTIONAL TRIPWIRE - Peter Bull - November 2012
@@ -20,8 +20,8 @@ const int inPinTwo = A1;  // Analog input pin that photoresistor 2 is attached t
 
 //================= TIME CONSTANTS
 const int LOOP_DELAY = 2;          // How long the main loop delays on each iteration (ms)
-const int LED_DELAY = 8*1000;      // How long to keep the LED on after it has been triggered (ms); 2mins
-const int RESET_DELAY = 5000;      // If the beams are tripped in the wrong direction, stop sensing for a period (ms)
+const int LED_DELAY = 10*1000;      // How long to keep the LED on after it has been triggered (ms); 2mins
+const int RESET_DELAY = 5*1000;      // If the beams are tripped in the wrong direction, stop sensing for a period (ms)
 const int SAMPLE_DELAY = 100;      // How often to sample the photoresistor value (ms)
 
 //================= SENSOR CONSTANTS
@@ -52,10 +52,10 @@ unsigned long time = 0;
 long diff = 0;
 
 //================== BLINKM CONSTANTS
-byte BLINKM_ADDR = 0x09;
+byte CTRLM_ADDR = 0x09;
 
 //================== DEBUG
-boolean DEBUG = true;
+boolean DEBUG = false;
 
 void setup() {
   if (DEBUG)
@@ -63,17 +63,25 @@ void setup() {
     Serial.begin(9600);
   }
   
-  setupBlinkM();
+  setupCtrlM();
 }
 
-void setupBlinkM()
+void setupCtrlM()
 {
   Wire.begin();
-  BlinkM_beginWithPower();
+  CtrlM_beginWithPower();
   delay(100); // wait a bit for things to stabilize
-  BlinkM_off(BLINKM_ADDR);  // turn everyone off
+  CtrlM_off(CTRLM_ADDR);  // turn everyone off
 }
+
 void loop() {
+  sensorLoop();
+  
+  // Use to debug ctrlm beahvior
+  //debugSerialLoop();
+}
+
+void sensorLoop() {
   // read the analog in value:
   sensor1_value = analogRead(inPinOne);
   sensor2_value = analogRead(inPinTwo);
@@ -126,57 +134,45 @@ void loop() {
 
 void onTrigger()
 {
-  simpleOnOff();
-
-//   NOTE: This does not appear to be supported by the
-//   CtrlM
-//   changeColors();
-   
-//   NOTE: This does not appear to be supported by the
-//   CtrlM
-//   playScripts();
-
+  // script 0 is the editable script in
+  // the sequencer tool available here:
+  // http://thingm.com/products/blinkm/quick-start-guide.html
+  playScript(0); 
 }
 
 void simpleOnOff()
 {
    printEvent(LED_EVENT);  
-   Wire.beginTransmission(BLINKM_ADDR);
-   Wire.write('f');
-   Wire.write(255);
+   Wire.beginTransmission(CTRLM_ADDR);
+   Wire.write('c');
+   Wire.write(0xff);
+   Wire.write(0xff);
+   Wire.write(0xff);
    Wire.endTransmission();
    delay(LED_DELAY);
-   BlinkM_off(BLINKM_ADDR);
+   CtrlM_off(CTRLM_ADDR);
 }
 
-void changeColors()
+void playScript(byte scriptId)
 {
-   Wire.beginTransmission(blinkm_addr);
-   Wire.write('c');
-   Wire.write(0xff);
-   Wire.write(0xff);
-   Wire.write(0xff);
-   delay(1000);
-   Wire.write('c');
-   Wire.write(0x01);
-   Wire.write(0x01);
-   Wire.write(0xbb);
-   Wire.endTransmission();
-   
-   BlinkM_off(BLINKM_ADDR);
+  CtrlM_playScript(CTRLM_ADDR, scriptId, 0x04, 0x00);
+  delay(LED_DELAY);
+  CtrlM_off(CTRLM_ADDR);
 }
 
+// plays 5 seconds of each of the scripts
+// on a blinkm.
 void playScripts()
 {
-  for (byte b = 0; b < 0xff; b++)
+  for (byte b = 0; b < 0x11; b++)
   {
-    BlinkM_playScript(BLINKM_ADDR, b, 0x04, 0x00);
+    CtrlM_playScript(CTRLM_ADDR, b, 0x04, 0x00);
     Serial.print("PLAYING SCRIPT NUMBER: "); 
     Serial.println(b);
     delay(5*1000);
-    BlinkM_stopScript(BLINKM_ADDR);
+    CtrlM_stopScript(CTRLM_ADDR);
   }
-  BlinkM_off(BLINKM_ADDR);
+  CtrlM_off(CTRLM_ADDR);
 }
 
 void normalizeSensorBase()
@@ -206,6 +202,28 @@ void normalizeSensorBase()
         
         printEvent(NORMALIZE_EVENT);
       }
+}
+
+// debug CtrlM. To use:
+// 1. switch loop method to debugSerialLoop()
+// 2. upload to arduino
+// 3. open serial monitor in Arduino  IDE (Tools > Serial Monitor)
+// 4. type "1" and hit "Send" to test blinkm methods.
+void debugSerialLoop(){
+  Serial.println("READ:");
+  int i = Serial.read();
+  Serial.println(i, DEC);
+  
+  if(i==49)
+  {
+    Serial.println("TURN ON");
+    playScript(0);
+  }
+  else
+  {
+    
+  }
+  delay(1000);
 }
 
 // prints certain events to the serial monitor
