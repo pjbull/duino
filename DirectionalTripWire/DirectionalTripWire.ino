@@ -155,7 +155,7 @@ void simpleOnOff()
 
 void playScript(byte scriptId)
 {
-  CtrlM_playScript(CTRLM_ADDR, scriptId, 0x04, 0x00);
+  CtrlM_playScript(CTRLM_ADDR, scriptId, 0x00, 0x00);
   delay(LED_DELAY);
   CtrlM_off(CTRLM_ADDR);
 }
