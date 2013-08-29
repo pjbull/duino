@@ -20,8 +20,8 @@ const int inPinTwo = A1;  // Analog input pin that photoresistor 2 is attached t
 
 //================= TIME CONSTANTS
 const int LOOP_DELAY = 2;          // How long the main loop delays on each iteration (ms)
-const int LED_DELAY = 10*1000;      // How long to keep the LED on after it has been triggered (ms); 2mins
-const int RESET_DELAY = 5*1000;      // If the beams are tripped in the wrong direction, stop sensing for a period (ms)
+const int LED_DELAY = 25*1000;      // How long to keep the LED on after it has been triggered (ms); 2mins
+const int RESET_DELAY = 2*1000;      // If the beams are tripped in the wrong direction, stop sensing for a period (ms)
 const int SAMPLE_DELAY = 100;      // How often to sample the photoresistor value (ms)
 
 //================= SENSOR CONSTANTS
@@ -32,6 +32,7 @@ const int NORMALIZE_EVENT = 0;
 const int LED_EVENT = 1;
 const int RESET_EVENT = 2;
 const int INITIAL_EVENT = 3;
+const int ZERO_TIME = 4; // when we reset the time int so it doesn't overflow
 
 //================= SENSOR VALUE STORAGE
 int sensor1_value = 0;       // photoresistor value reading
@@ -50,12 +51,13 @@ unsigned long time1 = NULL;
 unsigned long time2 = NULL;
 unsigned long time = 0;      
 long diff = 0;
+boolean beamTriggered = false; // keeps track of if one beam is triggered
 
 //================== BLINKM CONSTANTS
 byte CTRLM_ADDR = 0x09;
 
 //================== DEBUG
-boolean DEBUG = false;
+boolean DEBUG = true;
 
 void setup() {
   if (DEBUG)
@@ -93,7 +95,7 @@ void sensorLoop() {
     normalizeSensorBase();
   }
 
-  // get the deviations from the base value
+  // get the current deviations from the base value
   sensor1_deviation = sensor1_value - sensor1_base;
   sensor2_deviation = sensor2_value - sensor2_base;
   
@@ -101,10 +103,12 @@ void sensorLoop() {
   if (sensor1_deviation > DEV_MINIMUM && time1 == NULL)
   {
       time1 = time;
+      beamTriggered = true;
   }
   if (sensor2_deviation > DEV_MINIMUM && time2 == NULL)
   {
       time2 = time;
+      beamTriggered = true;
   }
   
   if (time1 != NULL && time2 != NULL)
@@ -126,6 +130,16 @@ void sensorLoop() {
     
     time1 = NULL;
     time2 = NULL;
+    beamTriggered = false;
+    time = 0; // event triggered, we can reset time
+  }
+  
+  // reset time so we don't overflow
+  // only if we are not waiting for the other beam to trip
+  if (!beamTriggered && time > 10000000)
+  {
+    printEvent(ZERO_TIME);
+    time = 0;
   }
 
   delay(LOOP_DELAY);  // short delay to let input settle
@@ -134,6 +148,8 @@ void sensorLoop() {
 
 void onTrigger()
 {
+  printEvent(LED_EVENT);
+  
   // script 0 is the editable script in
   // the sequencer tool available here:
   // http://thingm.com/products/blinkm/quick-start-guide.html
@@ -141,8 +157,7 @@ void onTrigger()
 }
 
 void simpleOnOff()
-{
-   printEvent(LED_EVENT);  
+{ 
    Wire.beginTransmission(CTRLM_ADDR);
    Wire.write('c');
    Wire.write(0xff);
@@ -237,21 +252,39 @@ void printEvent(int event)
   
   switch (event) {
     case NORMALIZE_EVENT:
-      Serial.println("NORMALIZE"); 
+      Serial.println("\nNORMALIZE"); 
       Serial.print("s1_b = \t");      
       Serial.println(sensor1_base);
       Serial.print("s2_b = \t");      
       Serial.println(sensor2_base);
+      Serial.print("time = \t");
+      Serial.println(time);
       break;
     case LED_EVENT:
-      Serial.println("LED"); 
-      Serial.print("diff = \t");      
+      Serial.println("\nLED"); 
+      Serial.print("time_diff = \t");      
       Serial.println(diff);
+      Serial.print("time1 = \t");      
+      Serial.println(time1);
+      Serial.print("time2 = \t");      
+      Serial.println(time2);
+      Serial.print("s1_deviation = \t");
+      Serial.println(sensor1_deviation);
+      Serial.print("s2_deviation = \t");
+      Serial.println(sensor2_deviation);
       break;
     case RESET_EVENT:
-      Serial.println("RESET"); 
+      Serial.println("\nRESET"); 
       Serial.print("diff = \t");      
       Serial.println(diff);
+      Serial.print("time1 = \t");      
+      Serial.println(time1);
+      Serial.print("time2 = \t");      
+      Serial.println(time2);
+      Serial.print("s1_deviation = \t");
+      Serial.println(sensor1_deviation);
+      Serial.print("s2_deviation = \t");
+      Serial.println(sensor2_deviation);
       break;
     case INITIAL_EVENT:
       Serial.println("INITIAL"); 
@@ -259,6 +292,11 @@ void printEvent(int event)
       Serial.println(sensor1_base);
       Serial.print("s2_b = \t");      
       Serial.println(sensor2_base);
+      break;
+    case ZERO_TIME:
+      Serial.println("\nZERO TIME"); 
+      Serial.print("Zeroing time from: time = \t");      
+      Serial.println(time);
       break;
     default:
       break;
