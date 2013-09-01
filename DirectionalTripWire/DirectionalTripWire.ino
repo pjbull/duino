@@ -134,6 +134,17 @@ void sensorLoop() {
     time = 0; // event triggered, we can reset time
   }
   
+  // reset if a single beam has been triggered for longer than
+  // 10 seconds
+  if (time1 != NULL && time - time1 > 10*1000 && time2 == NULL)
+  {
+    time1 = NULL;
+  }
+  else if (time2 != NULL && time - time2 > 10*1000 && time1 == NULL)
+  {
+    time2 = NULL;
+  }
+  
   // reset time so we don't overflow
   // only if we are not waiting for the other beam to trip
   if (!beamTriggered && time > 10000000)
