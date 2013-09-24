@@ -33,6 +33,7 @@ const int LED_EVENT = 1;
 const int RESET_EVENT = 2;
 const int INITIAL_EVENT = 3;
 const int ZERO_TIME = 4; // when we reset the time int so it doesn't overflow
+const int LED_OFF = 5;
 
 //================= SENSOR VALUE STORAGE
 int sensor1_value = 0;       // photoresistor value reading
@@ -181,8 +182,17 @@ void simpleOnOff()
 
 void playScript(byte scriptId)
 {
+  // Send the signal twice in case the Freem is Asleep
   CtrlM_playScript(CTRLM_ADDR, scriptId, 0x00, 0x00);
+  delay(2000);
+  CtrlM_playScript(CTRLM_ADDR, scriptId, 0x00, 0x00);
+  
   delay(LED_DELAY);
+  
+  // Send the signal twice in case the Freem is Asleep
+  printEvent(LED_OFF);
+  CtrlM_off(CTRLM_ADDR);
+  delay(2000);
   CtrlM_off(CTRLM_ADDR);
 }
 
@@ -283,6 +293,10 @@ void printEvent(int event)
       Serial.println(sensor1_deviation);
       Serial.print("s2_deviation = \t");
       Serial.println(sensor2_deviation);
+      break;
+    case LED_OFF:
+      Serial.println("\nTURNING OFF LED "); 
+      Serial.println("================");      
       break;
     case RESET_EVENT:
       Serial.println("\nRESET"); 
